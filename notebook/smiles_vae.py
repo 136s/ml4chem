@@ -8,7 +8,6 @@ from smiles_vocab import SmilesVocabulary
 
 
 class SmilesVAE(nn.Module):
-
     def __init__(
         self,
         vocab: SmilesVocabulary,
@@ -86,7 +85,7 @@ class SmilesVAE(nn.Module):
             decoder_params["hidden_size"], vocab_size
         )
         # デコーダの出力の確率分布
-        self.out_dist_cls: type[torch.distributions.distribution.Distribution] = (
+        self.out_dist_cls: type[torch.distributions.categorical.Categorical] = (
             Categorical
         )
         # 損失関数
@@ -252,7 +251,8 @@ class SmilesVAE(nn.Module):
         neg_likelihood: torch.Tensor = self.loss_func(
             out_seq_logit.transpose(1, 2), out_seq[:, 1:]
         )
-        neg_likelihood: torch.Tensor = neg_likelihood.sum(axis=1).mean()
+        # バッチごとに損失を合計し、その平均を取る
+        neg_likelihood = neg_likelihood.sum(dim=1).mean()
         # KL 情報量を計算
         kl_div: torch.Tensor = (
             -0.5 * (1.0 + logvar - mu**2 - torch.exp(logvar)).sum(axis=1).mean()
@@ -263,14 +263,14 @@ class SmilesVAE(nn.Module):
     def generate(
         self,
         z: torch.Tensor | None = None,
-        sample_size: int | None = None,
+        sample_size: int = 10,
         deterministic: bool = False,
     ) -> list[str]:
         """デコーダを用いて SMILES 系列を生成
 
         Args:
             z (torch.Tensor, optional): 潜在ベクトル. Defaults to None.
-            sample_size (int, optional): 生成する SMILES 系列の数. Defaults to None.
+            sample_size (int, optional): 生成する SMILES 系列の数. Defaults to 10.
             deterministic (bool, optional): False のとき確率的なサンプリングを行う. Defaults to False.
 
         Returns:
